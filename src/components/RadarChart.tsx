@@ -69,28 +69,61 @@ export default function RadarChart({
     const ringLabels = ["Ready Now", "Strategic Growth", "Advanced Impact"];
     const ringColors = ["#22c55e", "#eab308", "#3b82f6"];
 
-    // Subtle ring fills
+    // Define radial gradients for each ring
+    const defs = svg.append("defs");
+
+    // Green gradient (center ring) — fades from center outward
+    const gradGreen = defs.append("radialGradient")
+      .attr("id", "grad-green")
+      .attr("cx", "50%").attr("cy", "50%").attr("r", "50%");
+    gradGreen.append("stop").attr("offset", "0%").attr("stop-color", "#22c55e").attr("stop-opacity", 0.18);
+    gradGreen.append("stop").attr("offset", "100%").attr("stop-color", "#22c55e").attr("stop-opacity", 0.06);
+
+    // Yellow gradient (middle ring)
+    const gradYellow = defs.append("radialGradient")
+      .attr("id", "grad-yellow")
+      .attr("cx", "50%").attr("cy", "50%").attr("r", "50%");
+    gradYellow.append("stop").attr("offset", "30%").attr("stop-color", "#eab308").attr("stop-opacity", 0.12);
+    gradYellow.append("stop").attr("offset", "100%").attr("stop-color", "#eab308").attr("stop-opacity", 0.04);
+
+    // Blue gradient (outer ring)
+    const gradBlue = defs.append("radialGradient")
+      .attr("id", "grad-blue")
+      .attr("cx", "50%").attr("cy", "50%").attr("r", "50%");
+    gradBlue.append("stop").attr("offset", "50%").attr("stop-color", "#3b82f6").attr("stop-opacity", 0.10);
+    gradBlue.append("stop").attr("offset", "100%").attr("stop-color", "#3b82f6").attr("stop-opacity", 0.03);
+
+    // Ring fills with gradients (drawn outer to inner so layering works)
+    const gradIds = ["url(#grad-green)", "url(#grad-yellow)", "url(#grad-blue)"];
     [
-      { inner: 0, outer: ringRadii[0], color: "#22c55e" },
-      { inner: ringRadii[0], outer: ringRadii[1], color: "#eab308" },
-      { inner: ringRadii[1], outer: ringRadii[2], color: "#3b82f6" },
-    ].forEach(({ inner, outer, color }) => {
+      { inner: ringRadii[1], outer: ringRadii[2], grad: gradIds[2] },
+      { inner: ringRadii[0], outer: ringRadii[1], grad: gradIds[1] },
+      { inner: 0, outer: ringRadii[0], grad: gradIds[0] },
+    ].forEach(({ inner, outer, grad }) => {
       const arcGen = d3.arc();
       g.append("path")
         .attr("d", arcGen({ innerRadius: inner, outerRadius: outer, startAngle: 0, endAngle: 2 * Math.PI }) || "")
-        .attr("fill", color)
-        .attr("fill-opacity", 0.04);
+        .attr("fill", grad);
     });
 
-    // Ring circles
+    // Ring outline circles — solid, visible outlines
     ringRadii.forEach((r, i) => {
       g.append("circle")
         .attr("r", r)
         .attr("fill", "none")
         .attr("stroke", ringColors[i])
-        .attr("stroke-width", i === 0 ? 1.5 : 1)
-        .attr("stroke-opacity", i === 0 ? 0.4 : 0.2)
-        .attr("stroke-dasharray", i === 0 ? "none" : "6,4");
+        .attr("stroke-width", 1.5)
+        .attr("stroke-opacity", 0.35);
+    });
+
+    // Extra subtle mid-ring circles for depth
+    [maxRadius * 0.165, maxRadius * 0.495].forEach((r) => {
+      g.append("circle")
+        .attr("r", r)
+        .attr("fill", "none")
+        .attr("stroke", "#d1d5db")
+        .attr("stroke-width", 0.5)
+        .attr("stroke-opacity", 0.3);
     });
 
     // Ring labels along the right side

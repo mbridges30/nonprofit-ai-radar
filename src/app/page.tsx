@@ -79,19 +79,24 @@ export default function Home() {
         ) : (
           <>
             {/* Filters + Legend row */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-5 mb-4 sm:mb-6">
-              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-6">
-                <div className="flex-1">
-                  <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-                    Filter by Category
-                  </h2>
-                  <CategoryFilter
-                    activeCategories={activeCategories}
-                    onToggle={handleToggleCategory}
-                    onToggleAll={handleToggleAll}
-                  />
-                </div>
-                <div className="sm:pt-5">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 px-4 py-3 mb-4 sm:mb-6">
+              <div className="flex flex-wrap items-center gap-2">
+                <CategoryFilter
+                  activeCategories={activeCategories}
+                  onToggle={handleToggleCategory}
+                  onToggleAll={handleToggleAll}
+                />
+                <select
+                  value={sortBy}
+                  onChange={(e) =>
+                    setSortBy(e.target.value as "date" | "score")
+                  }
+                  className="text-xs border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-600 bg-gray-50"
+                >
+                  <option value="score">Sort by Score</option>
+                  <option value="date">Sort by Date</option>
+                </select>
+                <div className="ml-auto">
                   <TierLegend counts={tierCounts} />
                 </div>
               </div>
@@ -120,16 +125,6 @@ export default function Home() {
                       {filteredList.length}
                     </span>
                   </h2>
-                  <select
-                    value={sortBy}
-                    onChange={(e) =>
-                      setSortBy(e.target.value as "date" | "score")
-                    }
-                    className="text-xs border border-gray-200 rounded-md px-2 py-1 text-gray-600 bg-gray-50"
-                  >
-                    <option value="score">Sort by Score</option>
-                    <option value="date">Sort by Date</option>
-                  </select>
                 </div>
                 <div className="space-y-2 max-h-[420px] sm:max-h-[600px] overflow-y-auto pr-1 scrollbar-thin">
                   {filteredList.map((uc) => (

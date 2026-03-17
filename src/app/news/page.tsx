@@ -192,6 +192,47 @@ export default function NewsPage() {
               onKeywordChange={setActiveKeyword}
             />
 
+            {/* Email Digest Signup — below filters */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 px-4 py-3 mb-4 sm:mb-6">
+              <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4">
+                <div className="text-center sm:text-left flex-shrink-0">
+                  <p className="text-xs font-medium text-gray-600">
+                    Weekly AI in Nonprofits digest
+                  </p>
+                </div>
+                {subStatus === "success" ? (
+                  <p className="text-xs text-[#4a8284] font-medium">{subMessage}</p>
+                ) : (
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      handleSubscribe();
+                    }}
+                    className="flex items-center gap-2 flex-1 max-w-sm"
+                  >
+                    <input
+                      type="email"
+                      value={subEmail}
+                      onChange={(e) => setSubEmail(e.target.value)}
+                      placeholder="you@example.com"
+                      required
+                      className="flex-1 text-xs border border-gray-200 rounded-md px-2.5 py-1.5 focus:outline-none focus:border-[#5f9ea0]"
+                    />
+                    <button
+                      type="submit"
+                      disabled={subStatus === "loading"}
+                      className="px-3 py-1.5 text-xs font-medium text-white bg-[#5f9ea0] hover:bg-[#4a8284] rounded-md transition-colors disabled:opacity-50"
+                    >
+                      {subStatus === "loading" ? "..." : "Subscribe"}
+                    </button>
+                  </form>
+                )}
+                {subStatus === "error" && (
+                  <p className="text-xs text-red-500">{subMessage}</p>
+                )}
+              </div>
+            </div>
+
             {filteredArticles.length === 0 ? (
               <div className="text-center py-16">
                 <p className="text-gray-400 text-sm">
@@ -234,46 +275,6 @@ export default function NewsPage() {
                 </button>
               </div>
             )}
-
-            {/* Email Digest Signup */}
-            <div className="mt-6 bg-white rounded-xl shadow-sm border border-gray-200 px-4 py-4 text-center">
-              <p className="text-sm font-medium text-gray-700 mb-1">
-                Get the weekly AI in Nonprofits digest
-              </p>
-              <p className="text-xs text-gray-400 mb-3">
-                Top stories delivered to your inbox every Monday.
-              </p>
-              {subStatus === "success" ? (
-                <p className="text-sm text-[#4a8284] font-medium">{subMessage}</p>
-              ) : (
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    handleSubscribe();
-                  }}
-                  className="flex items-center gap-2 max-w-sm mx-auto"
-                >
-                  <input
-                    type="email"
-                    value={subEmail}
-                    onChange={(e) => setSubEmail(e.target.value)}
-                    placeholder="you@example.com"
-                    required
-                    className="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:border-[#5f9ea0]"
-                  />
-                  <button
-                    type="submit"
-                    disabled={subStatus === "loading"}
-                    className="px-4 py-1.5 text-sm font-medium text-white bg-[#5f9ea0] hover:bg-[#4a8284] rounded-lg transition-colors disabled:opacity-50"
-                  >
-                    {subStatus === "loading" ? "..." : "Subscribe"}
-                  </button>
-                </form>
-              )}
-              {subStatus === "error" && (
-                <p className="text-xs text-red-500 mt-2">{subMessage}</p>
-              )}
-            </div>
 
             <div className="mt-4 text-center text-[11px] text-gray-400">
               {articles.length} articles &middot;{" "}
