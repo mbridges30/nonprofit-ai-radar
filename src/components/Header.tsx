@@ -73,9 +73,9 @@ export default function Header() {
             href="https://bridgesstrategy.com"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-xs sm:text-sm text-[#5f9ea0] hover:text-[#4a8284] transition-colors font-medium"
+            className="inline-flex items-center gap-1 px-3 py-1.5 text-xs sm:text-sm font-medium text-white bg-[#4f8f9b] hover:bg-[#3d7a85] rounded transition-colors"
           >
-            Bridges Strategy
+            &larr; Back to Bridges Strategy
           </a>
         </div>
       </div>

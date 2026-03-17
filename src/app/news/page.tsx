@@ -4,6 +4,8 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import Header from "@/components/Header";
 import NewsCard from "@/components/NewsCard";
 import NewsFilters from "@/components/NewsFilters";
+import KitSubscribeForm from "@/components/KitSubscribeForm";
+import Footer from "@/components/Footer";
 import {
   NONPROFIT_TYPES,
   GEOGRAPHIES,
@@ -24,9 +26,6 @@ export default function NewsPage() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
-  const [subEmail, setSubEmail] = useState("");
-  const [subStatus, setSubStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
-  const [subMessage, setSubMessage] = useState("");
   const PAGE_SIZE = 50;
 
   useEffect(() => {
@@ -113,29 +112,6 @@ export default function NewsPage() {
     );
   }, []);
 
-  const handleSubscribe = useCallback(async () => {
-    if (!subEmail.trim()) return;
-    setSubStatus("loading");
-    try {
-      const res = await fetch("/api/subscribe", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: subEmail.trim() }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setSubStatus("success");
-        setSubMessage(data.message);
-        setSubEmail("");
-      } else {
-        setSubStatus("error");
-        setSubMessage(data.error || "Something went wrong");
-      }
-    } catch {
-      setSubStatus("error");
-      setSubMessage("Failed to subscribe");
-    }
-  }, [subEmail]);
 
   const filteredArticles = articles.filter((a) => {
     if (!activeNonprofitTypes.has(a.nonprofit_type)) return false;
@@ -192,46 +168,7 @@ export default function NewsPage() {
               onKeywordChange={setActiveKeyword}
             />
 
-            {/* Email Digest Signup — below filters */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 px-4 py-3 mb-4 sm:mb-6">
-              <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4">
-                <div className="text-center sm:text-left flex-shrink-0">
-                  <p className="text-xs font-medium text-gray-600">
-                    Weekly AI in Nonprofits digest
-                  </p>
-                </div>
-                {subStatus === "success" ? (
-                  <p className="text-xs text-[#4a8284] font-medium">{subMessage}</p>
-                ) : (
-                  <form
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      handleSubscribe();
-                    }}
-                    className="flex items-center gap-2 flex-1 max-w-sm"
-                  >
-                    <input
-                      type="email"
-                      value={subEmail}
-                      onChange={(e) => setSubEmail(e.target.value)}
-                      placeholder="you@example.com"
-                      required
-                      className="flex-1 text-xs border border-gray-200 rounded-md px-2.5 py-1.5 focus:outline-none focus:border-[#5f9ea0]"
-                    />
-                    <button
-                      type="submit"
-                      disabled={subStatus === "loading"}
-                      className="px-3 py-1.5 text-xs font-medium text-white bg-[#5f9ea0] hover:bg-[#4a8284] rounded-md transition-colors disabled:opacity-50"
-                    >
-                      {subStatus === "loading" ? "..." : "Subscribe"}
-                    </button>
-                  </form>
-                )}
-                {subStatus === "error" && (
-                  <p className="text-xs text-red-500">{subMessage}</p>
-                )}
-              </div>
-            </div>
+            <KitSubscribeForm />
 
             {filteredArticles.length === 0 ? (
               <div className="text-center py-16">
@@ -283,6 +220,8 @@ export default function NewsPage() {
           </>
         )}
       </main>
+
+      <Footer />
     </div>
   );
 }

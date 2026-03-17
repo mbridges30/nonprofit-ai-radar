@@ -50,3 +50,24 @@ body {
   background: #d1d5db;
   border-radius: 4px;
 }
+
+/* Kit.com form overrides */
+[data-uid="7dcdb9d4be"] {
+  font-family: inherit !important;
+}
+[data-uid="7dcdb9d4be"] input[type="email"] {
+  border: 1px solid #ccc !important;
+  border-radius: 4px !important;
+  box-shadow: none !important;
+  font-family: inherit !important;
+}
+[data-uid="7dcdb9d4be"] button {
+  background-color: #4f8f9b !important;
+  color: white !important;
+  border-radius: 4px !important;
+  box-shadow: none !important;
+  font-family: inherit !important;
+}
+[data-uid="7dcdb9d4be"] button:hover {
+  background-color: #3d7a85 !important;
+}

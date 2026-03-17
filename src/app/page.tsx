@@ -6,6 +6,7 @@ import UseCasePopup from "@/components/UseCasePopup";
 import CategoryFilter from "@/components/CategoryFilter";
 import TierLegend from "@/components/TierLegend";
 import Header from "@/components/Header";
+import Footer from "@/components/Footer";
 import { CATEGORIES, type UseCase } from "@/types";
 
 export default function Home() {
@@ -174,6 +175,8 @@ export default function Home() {
           </>
         )}
       </main>
+
+      <Footer />
 
       <UseCasePopup
         useCase={selectedUseCase}
