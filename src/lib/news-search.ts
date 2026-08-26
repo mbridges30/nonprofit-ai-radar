@@ -41,6 +41,42 @@ const GOOGLE_ALERTS_FEEDS: string[] = [
   "https://www.google.com/alerts/feeds/05638380350467677510/5043671743702139200",
 ];
 
+/**
+ * Brave returns a human age ("9 hours ago", "2 days ago") rather than a
+ * timestamp, and storing that verbatim made published_at unsortable — the news
+ * feed ordered by string comparison against real ISO dates. Convert to ISO,
+ * preferring Brave's page_age when it supplies one.
+ */
+function normalisePublishedAt(
+  age: string | null | undefined,
+  pageAge?: string | null
+): string | null {
+  if (pageAge) {
+    const parsed = new Date(pageAge);
+    if (!isNaN(parsed.getTime())) return parsed.toISOString();
+  }
+  if (!age) return null;
+
+  const direct = new Date(age);
+  if (!isNaN(direct.getTime())) return direct.toISOString();
+
+  const match = age.match(/(\d+)\s*(minute|hour|day|week|month)s?\s*ago/i);
+  if (!match) return null;
+
+  const amount = parseInt(match[1], 10);
+  const unitMs: Record<string, number> = {
+    minute: 60_000,
+    hour: 3_600_000,
+    day: 86_400_000,
+    week: 604_800_000,
+    month: 2_592_000_000,
+  };
+  const ms = unitMs[match[2].toLowerCase()];
+  if (!ms) return null;
+
+  return new Date(Date.now() - amount * ms).toISOString();
+}
+
 export async function braveNewsSearch(
   query: string,
   count = 10
@@ -79,12 +115,13 @@ export async function braveNewsSearch(
       description: string;
       meta_url?: { hostname: string };
       age?: string;
+      page_age?: string;
     }) => ({
       title: r.title,
       url: r.url,
       description: r.description || "",
       source_name: r.meta_url?.hostname?.replace(/^www\./, "") || "Unknown",
-      published_at: r.age || null,
+      published_at: normalisePublishedAt(r.age, r.page_age),
     })
   );
 }
