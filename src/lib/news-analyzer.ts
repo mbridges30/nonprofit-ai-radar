@@ -95,7 +95,7 @@ Example: [{"url": "...", "summary": "...", "primary_category": "...", "all_categ
           a.url &&
           a.summary &&
           CATEGORIES.includes(a.primary_category as Category) &&
-          (a.relevance_score || 0) >= 40 // Don't store articles below 40
+          (a.relevance_score || 0) >= 60 // Only store articles with direct nonprofit relevance
       )
       .map((a: RawClaudeResponse): AnalyzedArticle => {
         const original = articles.find((orig) => orig.url === a.url);

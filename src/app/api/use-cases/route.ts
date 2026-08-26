@@ -7,10 +7,14 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const category = searchParams.get("category");
   const tier = searchParams.get("tier");
+  // The public radar shows only the curated set. Pass ?status=pending (or
+  // "archived" / "all") to inspect the rest from the admin page.
+  const status = searchParams.get("status") || "published";
 
   const conditions = [];
   if (category) conditions.push(eq(useCases.category, category));
   if (tier) conditions.push(eq(useCases.tier, tier));
+  if (status !== "all") conditions.push(eq(useCases.status, status));
 
   const results = await db
     .select()

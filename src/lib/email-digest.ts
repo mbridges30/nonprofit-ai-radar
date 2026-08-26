@@ -1,8 +1,17 @@
 import { db } from "./db";
-import { newsArticles, subscribers } from "./schema";
-import { eq, desc, gte } from "drizzle-orm";
+import { newsArticles } from "./schema";
+import { desc, gte, sql } from "drizzle-orm";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://radar.bridgesstrategy.com";
+const KIT_API_URL = "https://api.kit.com/v4/broadcasts";
+
+/**
+ * "draft"  — create the broadcast in Kit and leave it for manual review/send.
+ * "send"   — schedule it to go out immediately.
+ * Draft is the default: the digest is generated from an automated news feed,
+ * so it is worth a human glance before it reaches subscribers.
+ */
+type DigestMode = "draft" | "send";
 
 interface DigestArticle {
   title: string;
@@ -13,7 +22,7 @@ interface DigestArticle {
   nonprofit_type: string;
 }
 
-function buildDigestHtml(articles: DigestArticle[], unsubscribeToken: string): string {
+function buildDigestHtml(articles: DigestArticle[]): string {
   const articleRows = articles
     .map(
       (a) => `
@@ -25,7 +34,7 @@ function buildDigestHtml(articles: DigestArticle[], unsubscribeToken: string): s
           ${a.summary ? `<p style="color: #666; font-size: 13px; margin: 4px 0 0;">${a.summary}</p>` : ""}
           <p style="color: #999; font-size: 11px; margin: 4px 0 0;">
             ${a.source_name} &middot; ${a.nonprofit_type}
-            ${a.relevance_score && a.relevance_score >= 80 ? " &middot; ⭐ Highly Relevant" : ""}
+            ${a.relevance_score && a.relevance_score >= 80 ? " &middot; Highly relevant" : ""}
           </p>
         </td>
       </tr>`
@@ -53,33 +62,33 @@ function buildDigestHtml(articles: DigestArticle[], unsubscribeToken: string): s
         <p style="color: #bbb; font-size: 11px;">
           Curated by <a href="${SITE_URL}" style="color: #999;">Nonprofit AI Radar</a> by Bridges Strategy
         </p>
-        <a href="${SITE_URL}/api/unsubscribe?token=${unsubscribeToken}" style="color: #bbb; font-size: 11px;">
-          Unsubscribe
-        </a>
       </div>
     </div>
   `;
 }
 
-export async function sendWeeklyDigest(): Promise<{ sent: number; articles: number }> {
-  const RESEND_API_KEY = process.env.RESEND_API_KEY;
-  if (!RESEND_API_KEY) {
-    throw new Error("RESEND_API_KEY not set");
+/**
+ * Builds the weekly digest and hands it to Kit as a broadcast.
+ *
+ * Subscribers live in Kit (that is where the signup form sends them), so Kit
+ * owns delivery, unsubscribes and compliance. Previously this read a local
+ * `subscribers` table that nothing had written to since the switch to Kit,
+ * which is why no digest ever reached anyone.
+ */
+export async function sendWeeklyDigest(): Promise<{
+  broadcastId: number | null;
+  articles: number;
+  mode: DigestMode;
+}> {
+  const KIT_V4_API_KEY = process.env.KIT_V4_API_KEY;
+  if (!KIT_V4_API_KEY) {
+    throw new Error(
+      "KIT_V4_API_KEY not set — create a v4 API key at kit.com under Settings > Developer"
+    );
   }
 
-  // Get confirmed subscribers
-  const subs = db
-    .select()
-    .from(subscribers)
-    .where(eq(subscribers.confirmed, 1))
-    .all();
+  const mode: DigestMode = process.env.DIGEST_MODE === "send" ? "send" : "draft";
 
-  if (subs.length === 0) {
-    console.log("[Digest] No confirmed subscribers");
-    return { sent: 0, articles: 0 };
-  }
-
-  // Get articles from the past 7 days, ordered by relevance
   const sevenDaysAgo = new Date();
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
@@ -88,33 +97,44 @@ export async function sendWeeklyDigest(): Promise<{ sent: number; articles: numb
     .from(newsArticles)
     .where(gte(newsArticles.discovered_at, sevenDaysAgo.toISOString()))
     .orderBy(desc(newsArticles.relevance_score))
-    .limit(15)
+    .limit(12)
     .all();
 
   if (recentArticles.length === 0) {
-    console.log("[Digest] No articles from the past week");
-    return { sent: 0, articles: 0 };
+    console.log("[Digest] No articles from the past week — nothing to send");
+    return { broadcastId: null, articles: 0, mode };
   }
 
-  const { Resend } = await import("resend");
-  const resend = new Resend(RESEND_API_KEY);
-  const fromAddress = process.env.EMAIL_FROM || "Nonprofit AI Radar <noreply@bridgesstrategy.com>";
+  const today = new Date().toISOString().split("T")[0];
 
-  let sent = 0;
-  for (const sub of subs) {
-    try {
-      const html = buildDigestHtml(recentArticles, sub.unsubscribe_token);
-      await resend.emails.send({
-        from: fromAddress,
-        to: sub.email,
-        subject: `AI in Nonprofits: ${recentArticles.length} stories this week`,
-        html,
-      });
-      sent++;
-    } catch (err) {
-      console.error(`[Digest] Failed to send to ${sub.email}:`, err);
-    }
+  const res = await fetch(KIT_API_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Kit-Api-Key": KIT_V4_API_KEY,
+    },
+    body: JSON.stringify({
+      subject: `AI in Nonprofits: ${recentArticles.length} stories this week`,
+      preview_text: recentArticles[0].title,
+      description: `Weekly digest ${today}`,
+      content: buildDigestHtml(recentArticles),
+      public: false,
+      // null leaves it as a draft in Kit; a timestamp schedules the send.
+      send_at: mode === "send" ? new Date().toISOString() : null,
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Kit broadcast failed: ${res.status} ${err}`);
   }
 
-  return { sent, articles: recentArticles.length };
+  const data = await res.json();
+  const broadcastId = data?.broadcast?.id ?? null;
+
+  console.log(
+    `[Digest] Kit broadcast ${broadcastId} created as ${mode} with ${recentArticles.length} articles`
+  );
+
+  return { broadcastId, articles: recentArticles.length, mode };
 }

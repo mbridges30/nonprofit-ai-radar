@@ -1,3 +1,5 @@
+export type UseCaseStatus = "published" | "pending" | "archived";
+
 export type Tier = "ready_now" | "strategic_growth" | "advanced_impact";
 
 export type Category =
@@ -55,6 +57,7 @@ export interface UseCase {
   implementation_notes: string | null;
   example_orgs: string | null;
   date_found: string;
+  status: UseCaseStatus;
   created_at: string;
   updated_at: string;
 }

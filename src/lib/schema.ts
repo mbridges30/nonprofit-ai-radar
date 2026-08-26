@@ -13,6 +13,7 @@ export const useCases = sqliteTable("use_cases", {
   implementation_notes: text("implementation_notes"),
   example_orgs: text("example_orgs"),
   date_found: text("date_found").notNull(),
+  status: text("status").notNull().default("published"),
   created_at: text("created_at")
     .notNull()
     .default(sql`(datetime('now'))`),

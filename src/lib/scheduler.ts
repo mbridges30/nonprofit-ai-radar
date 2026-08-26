@@ -59,7 +59,8 @@ export function startScheduler() {
       const { sendWeeklyDigest } = await import("./email-digest");
       const result = await sendWeeklyDigest();
       console.log(
-        `[Scheduler] Digest sent to ${result.sent} subscribers (${result.articles} articles).`
+        `[Scheduler] Digest broadcast ${result.broadcastId} created in Kit as ` +
+          `${result.mode} (${result.articles} articles).`
       );
     } catch (err) {
       console.error("[Scheduler] Digest failed:", err);

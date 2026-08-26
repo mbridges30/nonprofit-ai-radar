@@ -72,6 +72,12 @@ sqlite.exec(`
   );
 `);
 
+// Curation status for radar use cases: 'published' | 'pending' | 'archived'.
+// Defaults to 'published' so existing rows stay visible until curation runs.
+try {
+  sqlite.exec(`ALTER TABLE use_cases ADD COLUMN status TEXT NOT NULL DEFAULT 'published'`);
+} catch { /* column already exists */ }
+
 // Add new columns to existing news_articles table (safe to run repeatedly)
 try {
   sqlite.exec(`ALTER TABLE news_articles ADD COLUMN nonprofit_type TEXT NOT NULL DEFAULT 'Cross-Sector'`);

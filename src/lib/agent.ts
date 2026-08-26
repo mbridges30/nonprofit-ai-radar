@@ -87,6 +87,9 @@ export async function runResearchAgent(): Promise<{
             implementation_notes: scored.implementation_notes,
             example_orgs: JSON.stringify(scored.example_orgs),
             date_found: new Date().toISOString().split("T")[0],
+            // New finds queue for review rather than appearing on the radar
+            // automatically — this is what kept the chart growing unchecked.
+            status: "pending",
           })
           .run();
         casesFound++;

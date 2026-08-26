@@ -3,6 +3,11 @@ import RSSParser from "rss-parser";
 const BRAVE_API_KEY = process.env.BRAVE_API_KEY || "";
 const BRAVE_NEWS_URL = "https://api.search.brave.com/res/v1/news/search";
 
+// Several nonprofit publishers (TechSoup among them) reject the default
+// rss-parser agent with a 403.
+const USER_AGENT =
+  "Mozilla/5.0 (compatible; NonprofitAIRadar/1.0; +https://radar.bridgesstrategy.com)";
+
 export interface RawNewsItem {
   title: string;
   url: string;
@@ -24,11 +29,12 @@ const NEWS_QUERIES = [
 
 const CURATED_RSS_FEEDS: { url: string; name: string }[] = [
   { url: "https://www.techsoup.org/rss/blog", name: "TechSoup" },
-  { url: "https://feeds.feedburner.com/ssaboratoire", name: "Stanford Social Innovation Review" },
+  { url: "https://ssir.org/site/rss_2.0", name: "Stanford Social Innovation Review" },
   { url: "https://www.philanthropy.com/rss", name: "Chronicle of Philanthropy" },
   { url: "https://nonprofitquarterly.org/feed/", name: "Nonprofit Quarterly" },
   { url: "https://www.nonprofitpro.com/feed/", name: "NonProfit PRO" },
-  { url: "https://blog.nten.org/feed/", name: "NTEN" },
+  { url: "https://www.nten.org/feed/", name: "NTEN" },
+  { url: "https://www.thenonprofittimes.com/feed/", name: "The NonProfit Times" },
 ];
 
 const GOOGLE_ALERTS_FEEDS: string[] = [
@@ -87,7 +93,10 @@ async function fetchRSSFeed(
   feedUrl: string,
   sourceName?: string
 ): Promise<RawNewsItem[]> {
-  const parser = new RSSParser();
+  const parser = new RSSParser({
+    timeout: 15000,
+    headers: { "User-Agent": USER_AGENT },
+  });
   try {
     const feed = await parser.parseURL(feedUrl);
     const name = sourceName || feed.title || "Unknown";
