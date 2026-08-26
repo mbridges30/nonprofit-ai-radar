@@ -80,10 +80,10 @@ export async function sendWeeklyDigest(): Promise<{
   articles: number;
   mode: DigestMode;
 }> {
-  const KIT_V4_API_KEY = process.env.KIT_V4_API_KEY;
-  if (!KIT_V4_API_KEY) {
+  const kitApiKey = process.env.KIT_API_KEY || process.env.KIT_V4_API_KEY;
+  if (!kitApiKey) {
     throw new Error(
-      "KIT_V4_API_KEY not set — create a v4 API key at kit.com under Settings > Developer"
+      "KIT_API_KEY not set — create a v4 API key at kit.com under Settings > Developer"
     );
   }
 
@@ -111,7 +111,7 @@ export async function sendWeeklyDigest(): Promise<{
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "X-Kit-Api-Key": KIT_V4_API_KEY,
+      "X-Kit-Api-Key": kitApiKey,
     },
     body: JSON.stringify({
       subject: `AI in Nonprofits: ${recentArticles.length} stories this week`,

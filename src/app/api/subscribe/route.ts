@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const KIT_API_KEY = process.env.KIT_API_KEY;
+// Kit v4 uses one API key for everything (subscribe, broadcasts). KIT_V4_API_KEY
+// is accepted as an alias so an older deployment keeps working.
+const KIT_API_KEY = process.env.KIT_API_KEY || process.env.KIT_V4_API_KEY;
 const KIT_FORM_ID = process.env.KIT_FORM_ID || "9219010";
+const KIT_API = "https://api.kit.com/v4";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "https://bridgesstrategy.com",
@@ -11,6 +14,13 @@ const CORS_HEADERS = {
 
 export async function OPTIONS() {
   return NextResponse.json(null, { headers: CORS_HEADERS });
+}
+
+function kitHeaders() {
+  return {
+    "Content-Type": "application/json",
+    "X-Kit-Api-Key": KIT_API_KEY as string,
+  };
 }
 
 export async function POST(req: NextRequest) {
@@ -34,22 +44,33 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Add subscriber to Kit form
-    const kitRes = await fetch(
-      `https://api.convertkit.com/v3/forms/${KIT_FORM_ID}/subscribe`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          api_key: KIT_API_KEY,
-          email: normalised,
-        }),
-      }
-    );
+    // Step 1: upsert the subscriber (200 if they already exist, 201 if new).
+    const createRes = await fetch(`${KIT_API}/subscribers`, {
+      method: "POST",
+      headers: kitHeaders(),
+      body: JSON.stringify({ email_address: normalised }),
+    });
 
-    if (!kitRes.ok) {
-      const err = await kitRes.text();
-      console.error("Kit API error:", err);
+    if (!createRes.ok) {
+      const err = await createRes.text();
+      console.error("Kit create-subscriber error:", createRes.status, err);
+      return NextResponse.json(
+        { error: "Failed to subscribe" },
+        { status: 500, headers: CORS_HEADERS }
+      );
+    }
+
+    // Step 2: attach them to the form, which is what triggers the form's
+    // confirmation/welcome sequence. v4 requires the subscriber to exist first.
+    const formRes = await fetch(`${KIT_API}/forms/${KIT_FORM_ID}/subscribers`, {
+      method: "POST",
+      headers: kitHeaders(),
+      body: JSON.stringify({ email_address: normalised }),
+    });
+
+    if (!formRes.ok) {
+      const err = await formRes.text();
+      console.error("Kit add-to-form error:", formRes.status, err);
       return NextResponse.json(
         { error: "Failed to subscribe" },
         { status: 500, headers: CORS_HEADERS }
@@ -57,7 +78,7 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json(
-      { message: "You're subscribed! Check your email to confirm." },
+      { message: "You're subscribed. Check your email to confirm." },
       { headers: CORS_HEADERS }
     );
   } catch (err) {
