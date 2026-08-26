@@ -123,7 +123,7 @@ export function getNewsQueries(batchSize = 5): string[] {
  * Google Alerts wraps URLs in redirects and sometimes uses the URL as the title.
  * This cleans both issues.
  */
-function cleanGoogleAlertsItem(item: RawNewsItem): RawNewsItem {
+function cleanItem(item: RawNewsItem): RawNewsItem {
   let url = item.url;
 
   // Extract real URL from Google redirect
@@ -174,11 +174,11 @@ export async function fetchAllNewsSources(): Promise<RawNewsItem[]> {
 
   const addItems = (items: RawNewsItem[]) => {
     for (const item of items) {
-      if (item.url && !seenUrls.has(item.url)) {
-        seenUrls.add(item.url);
-        // Strip any HTML tags from titles (Brave, Google Alerts, and some RSS feeds include them)
-        const cleanTitle = item.title.replace(/<[^>]*>/g, "").trim();
-        allItems.push({ ...item, title: cleanTitle || item.title });
+      if (!item.url) continue;
+      const cleaned = cleanItem(item);
+      if (!seenUrls.has(cleaned.url)) {
+        seenUrls.add(cleaned.url);
+        allItems.push(cleaned);
       }
     }
   };
@@ -195,10 +195,10 @@ export async function fetchAllNewsSources(): Promise<RawNewsItem[]> {
     }
   }
 
-  // 2. Google Alerts RSS feeds (clean redirect URLs and HTML titles)
+  // 2. Google Alerts RSS feeds
   for (const feedUrl of GOOGLE_ALERTS_FEEDS) {
     const items = await fetchRSSFeed(feedUrl, "Google Alerts");
-    addItems(items.map(cleanGoogleAlertsItem));
+    addItems(items);
   }
 
   // 3. Curated RSS feeds
