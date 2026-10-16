@@ -16,6 +16,16 @@ interface ScoredUseCase extends ExtractedUseCase {
   example_orgs: string[];
 }
 
+function parseJsonObject<T>(response: string): T {
+  try {
+    return JSON.parse(response) as T;
+  } catch {
+    const match = response.match(/\{[\s\S]*\}/);
+    if (!match) throw new Error("No JSON object in response");
+    return JSON.parse(match[0]) as T;
+  }
+}
+
 export async function extractUseCases(
   searchResults: { title: string; url: string; description: string }[],
   existingTitles: string[]
@@ -46,19 +56,20 @@ For each NEW and DISTINCT use case, provide:
 - source_name: The publication or website name
 - category: One of: ${CATEGORIES.join(", ")}
 
-Return ONLY valid JSON array. If no new use cases found, return [].
-Example: [{"title": "...", "description": "...", "source_url": "...", "source_name": "...", "category": "..."}]`,
+Return ONLY a valid JSON object with this exact shape:
+{"use_cases": [{"title": "...", "description": "...", "source_url": "...", "source_name": "...", "category": "..."}]}
+
+If no new use cases found, return {"use_cases": []}.`,
       },
     ],
-    "You are an AI research analyst specializing in nonprofit technology. Extract concrete, actionable AI use cases from search results. Focus on real applications, not theoretical concepts. Be specific about what the AI does and how it helps nonprofits."
+    "You are an AI research analyst specializing in nonprofit technology. Extract concrete, actionable AI use cases from search results. Focus on real applications, not theoretical concepts. Be specific about what the AI does and how it helps nonprofits. Always respond with a single JSON object."
   );
 
   try {
-    const jsonMatch = response.match(/\[[\s\S]*\]/);
-    if (!jsonMatch) return [];
-    const parsed = JSON.parse(jsonMatch[0]);
-    return parsed.filter(
-      (uc: ExtractedUseCase) =>
+    const parsed = parseJsonObject<{ use_cases?: ExtractedUseCase[] }>(response);
+    const items = parsed.use_cases ?? [];
+    return items.filter(
+      (uc) =>
         uc.title &&
         uc.description &&
         CATEGORIES.includes(uc.category as Category)
@@ -96,25 +107,28 @@ Also provide:
 - implementation_notes: 2-3 sentences on how a nonprofit could start implementing this today
 - example_orgs: Array of 1-3 nonprofit names or types already using this (or likely early adopters)
 
-Return ONLY valid JSON:
+Return ONLY a valid JSON object with this exact shape:
 {"score": 85, "tier": "ready_now", "implementation_notes": "...", "example_orgs": ["..."]}`,
       },
     ],
-    "You are a nonprofit technology advisor. Score AI use cases based on practical readiness for nonprofits of varying sizes. Be realistic about costs, technical requirements, and organizational capacity."
+    "You are a nonprofit technology advisor. Score AI use cases based on practical readiness for nonprofits of varying sizes. Be realistic about costs, technical requirements, and organizational capacity. Always respond with a single JSON object."
   );
 
   try {
-    const jsonMatch = response.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error("No JSON found");
-    const scored = JSON.parse(jsonMatch[0]);
+    const scored = parseJsonObject<{
+      score?: number;
+      implementation_notes?: string;
+      example_orgs?: string[];
+    }>(response);
 
+    const rawScore = scored.score ?? 50;
     let tier: Tier = "strategic_growth";
-    if (scored.score >= 70) tier = "ready_now";
-    else if (scored.score < 40) tier = "advanced_impact";
+    if (rawScore >= 70) tier = "ready_now";
+    else if (rawScore < 40) tier = "advanced_impact";
 
     return {
       ...useCase,
-      score: Math.max(1, Math.min(100, scored.score)),
+      score: Math.max(1, Math.min(100, rawScore)),
       tier,
       implementation_notes: scored.implementation_notes || "",
       example_orgs: scored.example_orgs || [],

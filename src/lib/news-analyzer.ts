@@ -34,6 +34,16 @@ interface RawClaudeResponse {
   tags: string[];
 }
 
+function parseJsonObject<T>(response: string): T {
+  try {
+    return JSON.parse(response) as T;
+  } catch {
+    const match = response.match(/\{[\s\S]*\}/);
+    if (!match) throw new Error("No JSON object in response");
+    return JSON.parse(match[0]) as T;
+  }
+}
+
 export async function analyzeArticles(
   articles: RawNewsItem[]
 ): Promise<AnalyzedArticle[]> {
@@ -77,27 +87,26 @@ EXCLUDE entirely (do not include in results):
 - Purely technical AI research papers with no practical nonprofit application
 - General business AI tools with no nonprofit angle
 
-Return ONLY a valid JSON array.
-Example: [{"url": "...", "summary": "...", "primary_category": "...", "all_categories": ["..."], "nonprofit_type": "Health & Human Services", "geography": "North America", "relevance_score": 85, "tags": ["..."]}]`,
+Return ONLY a valid JSON object with this exact shape:
+{"articles": [{"url": "...", "summary": "...", "primary_category": "...", "all_categories": ["..."], "nonprofit_type": "Health & Human Services", "geography": "North America", "relevance_score": 85, "tags": ["..."]}]}`,
       },
     ],
-    "You are a nonprofit technology strategist analyzing news about AI in the social sector. Your audience is nonprofit executive directors and technology leaders. Be practical and specific in summaries — avoid hype and focus on what's actionable. Be VERY strict about relevance scoring — only articles that are genuinely useful to nonprofit leaders should score above 50. When in doubt, score lower. Exclude articles that are primarily corporate marketing or only tangentially mention nonprofits."
+    "You are a nonprofit technology strategist analyzing news about AI in the social sector. Your audience is nonprofit executive directors and technology leaders. Be practical and specific in summaries — avoid hype and focus on what's actionable. Be VERY strict about relevance scoring — only articles that are genuinely useful to nonprofit leaders should score above 50. When in doubt, score lower. Exclude articles that are primarily corporate marketing or only tangentially mention nonprofits. Always respond with a single JSON object."
   );
 
   try {
-    const jsonMatch = response.match(/\[[\s\S]*\]/);
-    if (!jsonMatch) return [];
-    const parsed = JSON.parse(jsonMatch[0]);
+    const parsed = parseJsonObject<{ articles?: RawClaudeResponse[] }>(response);
+    const items = parsed.articles ?? [];
 
-    return parsed
+    return items
       .filter(
-        (a: RawClaudeResponse) =>
+        (a) =>
           a.url &&
           a.summary &&
           CATEGORIES.includes(a.primary_category as Category) &&
-          (a.relevance_score || 0) >= 60 // Only store articles with direct nonprofit relevance
+          (a.relevance_score || 0) >= 60
       )
-      .map((a: RawClaudeResponse): AnalyzedArticle => {
+      .map((a): AnalyzedArticle => {
         const original = articles.find((orig) => orig.url === a.url);
         return {
           url: a.url,

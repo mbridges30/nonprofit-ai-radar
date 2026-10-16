@@ -12,6 +12,16 @@ interface Selection {
   reason: string;
 }
 
+function parseJsonObject<T>(response: string): T {
+  try {
+    return JSON.parse(response) as T;
+  } catch {
+    const match = response.match(/\{[\s\S]*\}/);
+    if (!match) throw new Error("No JSON object in response");
+    return JSON.parse(match[0]) as T;
+  }
+}
+
 /**
  * The radar accumulated hundreds of use cases because the weekly agent appended
  * without any editorial gate, and it kept rediscovering the same handful of
@@ -69,22 +79,24 @@ Candidates:
 
 ${list}
 
-Return ONLY a JSON array of exactly ${perCategory} objects, each: {"id": <number>, "reason": "<8 words or fewer on why this one>"}`,
+Return ONLY a valid JSON object with this exact shape:
+{"selections": [{"id": <number>, "reason": "<8 words or fewer on why this one>"}]}
+Include exactly ${perCategory} items in the array.`,
       },
     ],
-    "You are a nonprofit technology strategist curating a decision-making tool for busy executives. Ruthlessly eliminate redundancy — a short, distinct list is far more useful than a comprehensive one. Return only valid JSON.",
+    "You are a nonprofit technology strategist curating a decision-making tool for busy executives. Ruthlessly eliminate redundancy — a short, distinct list is far more useful than a comprehensive one. Always respond with a single JSON object.",
     4096,
     "high"
   );
 
-  const match = response.match(/\[[\s\S]*\]/);
-  if (!match) {
-    throw new Error(`No JSON array returned for category "${category}"`);
+  const parsed = parseJsonObject<{ selections?: Selection[] }>(response);
+  const selections = parsed.selections ?? [];
+  if (selections.length === 0) {
+    throw new Error(`No selections returned for category "${category}"`);
   }
 
   const validIds = new Set(rows.map((r) => r.id));
-  const parsed = JSON.parse(match[0]) as Selection[];
-  return parsed.filter((s) => validIds.has(s.id));
+  return selections.filter((s) => validIds.has(s.id));
 }
 
 export async function curateRadar(

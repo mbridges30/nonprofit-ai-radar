@@ -1,33 +1,81 @@
+import Groq from "groq-sdk";
+
+const GROQ_API_KEY = process.env.GROQ_API_KEY || "";
+const GROQ_MODEL = process.env.GROQ_MODEL || "openai/gpt-oss-20b";
+const GROQ_CURATION_MODEL =
+  process.env.GROQ_CURATION_MODEL || "openai/gpt-oss-120b";
+
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || "";
+const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-5-5";
 const CLAUDE_API_URL = "https://api.anthropic.com/v1/messages";
-const MODEL = process.env.ANTHROPIC_MODEL || "claude-opus-5";
 
 /**
  * Reasoning effort. These calls are structured extraction against an explicit
- * rubric, so "low" is the sensible default. Curation passes that need real
- * judgement override this.
+ * rubric, so "low" is the sensible default. The curator overrides this with
+ * "high" because deduping across many near-duplicate candidates needs real
+ * judgement — on Groq this switches to the larger gpt-oss-120b model.
  */
 export type Effort = "low" | "medium" | "high" | "xhigh" | "max";
 
-interface ClaudeMessage {
+interface Message {
   role: "user" | "assistant";
   content: string;
 }
 
+/**
+ * Provider-agnostic LLM call. Returns a JSON string (when the Groq path is
+ * used, JSON mode guarantees it; when the Anthropic fallback is used, callers
+ * get whatever text the model produced — which may need regex extraction).
+ */
 export async function callClaude(
-  messages: ClaudeMessage[],
+  messages: Message[],
   systemPrompt?: string,
   maxTokens = 4096,
   effort: Effort = "low"
 ): Promise<string> {
+  if (GROQ_API_KEY) {
+    return callGroq(messages, systemPrompt, maxTokens, effort);
+  }
+  return callAnthropic(messages, systemPrompt, maxTokens);
+}
+
+async function callGroq(
+  messages: Message[],
+  systemPrompt: string | undefined,
+  maxTokens: number,
+  effort: Effort
+): Promise<string> {
+  const model = effort === "high" ? GROQ_CURATION_MODEL : GROQ_MODEL;
+
+  const client = new Groq({ apiKey: GROQ_API_KEY });
+  const chatMessages: { role: "system" | "user" | "assistant"; content: string }[] =
+    [];
+  if (systemPrompt) chatMessages.push({ role: "system", content: systemPrompt });
+  for (const m of messages) chatMessages.push(m);
+
+  const response = await client.chat.completions.create({
+    model,
+    messages: chatMessages,
+    response_format: { type: "json_object" },
+    max_tokens: maxTokens,
+    temperature: 0.1,
+  });
+
+  return response.choices[0]?.message?.content ?? "";
+}
+
+async function callAnthropic(
+  messages: Message[],
+  systemPrompt: string | undefined,
+  maxTokens: number
+): Promise<string> {
   if (!ANTHROPIC_API_KEY) {
-    throw new Error("ANTHROPIC_API_KEY not set");
+    throw new Error("Neither GROQ_API_KEY nor ANTHROPIC_API_KEY is set");
   }
 
   const body: Record<string, unknown> = {
-    model: MODEL,
+    model: ANTHROPIC_MODEL,
     max_tokens: maxTokens,
-    output_config: { effort },
     messages,
   };
 
@@ -52,7 +100,6 @@ export async function callClaude(
 
   const data = await response.json();
 
-  // Safety classifiers can decline a request (HTTP 200 + stop_reason "refusal")
   if (data.stop_reason === "refusal") {
     throw new Error(
       `Claude declined the request (${data.stop_details?.category ?? "unknown"})`
